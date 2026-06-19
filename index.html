@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enquête AIPR - Analyse DICT & Détection</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f1f5f9;
+            color: #1e293b;
+            padding: 15px;
+            min-height: 100vh;
+        }
+        .container { max-width: 1300px; margin: 0 auto; display: flex; flex-direction: column; gap: 15px; }
+        header {
+            background: #ffffff; border: 2px solid #cbd5e1; border-radius: 12px;
+            padding: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        h1 { color: #c2410c; font-size: 1.6rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .badge-aipr { background: #e11d48; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+        
+        .game-grid { display: grid; grid-template-columns: 340px 1fr; gap: 15px; }
+        @media (max-width: 1000px) { .game-grid { grid-template-columns: 1fr; } }
+
+        .panel {
+            background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px;
+            padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .panel-title { font-size: 0.95rem; font-weight: bold; color: #0f172a; margin-bottom: 10px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; display: flex; justify-content: space-between; }
+        
+        label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: #475569; }
+        select { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; font-size: 0.85rem; margin-bottom: 10px; }
+        
+        .status-box { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 0.8rem; min-height: 55px; line-height: 1.4; }
+        
+        /* Zone de dessin */
+        .views-area { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-box { position: relative; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
+        .canvas-label { position: absolute; top: 5px; left: 10px; background: rgba(255,255,255,0.95); padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; border: 1px solid #cbd5e1; z-index: 5; }
+        canvas { display: block; width: 100%; cursor: crosshair; }
+
+        /* DICT Documents */
+        .dict-document { background: #fffbeb; border: 1px solid #fef08a; border-radius: 6px; padding: 10px; font-size: 0.8rem; margin-bottom: 10px; }
+        .dict-title { font-weight: bold; color: #a16207; margin-bottom: 4px; }
+
+        /* Module de Quiz */
+        .quiz-container { background: #f0fdfa; border: 1px solid #ccfbf1; padding: 15px; border-radius: 8px; }
+        .quiz-title { font-weight: bold; color: #115e59; font-size: 0.95rem; margin-bottom: 10px; }
+        .quiz-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .btn-opt { padding: 10px; border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500; text-align: left; transition: all 0.2s; }
+        .btn-opt:hover { background: #f1f5f9; border-color: #94a3b8; }
+        
+        /* Justification Expert */
+        .expert-feedback { display: none; margin-top: 12px; padding: 12px; border-radius: 6px; font-size: 0.85rem; line-height: 1.5; border-left: 4px solid #cbd5e1; background: #ffffff; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); }
+        .feedback-success { border-color: #16a34a; background: #f0fdf4; color: #14532d; }
+        .feedback-error { border-color: #dc2626; background: #fef2f2; color: #7f1d1d; }
+
+        .btn-main { width: 100%; padding: 10px; background: #1e293b; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 5px; font-size: 0.9rem; }
+        .btn-main:hover { background: #0f172a; }
+        .btn-next { background: #0284c7; margin-top: 10px; display: none; }
+        .btn-next:hover { background: #0369a1; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🚧 Détection Avancée & Analyse DICT <span class="badge-aipr">Examen AIPR</span></h1>
+        <p style="color: #64748b; font-size: 0.85rem; margin-top: 4px;">Passez votre souris sur la route grise pour scanner et faire apparaître les réseaux masqués.</p>
+    </header>
+
+    <div class="game-grid">
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <div class="panel">
+                <div class="panel-title">📋 Consultation des DICT reçues</div>
+                <div class="dict-document">
+                    <div class="dict-title">📄 Extrait de Plan Exploitant :</div>
+                    <div id="dictTextContent" style="line-height: 1.4; color: #78350f;">
+                        Chargement...
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">⚙️ Auscultation Physique</div>
+                <label>Nature du sol actuel :</label>
+                <select id="selectSol" onchange="redessiner()">
+                    <option value="sable">Sable sec / Grave non argileuse</option>
+                    <option value="argile">Argile saturée / Terre compacte</option>
+                </select>
+
+                <label>Configuration du Détecteur :</label>
+                <select id="selectOutil" onchange="redessiner()">
+                    <option value="electro">Électromagnétique (Magnétomètre)</option>
+                    <option value="radar">GPR / Radar de sol (Ondes HF)</option>
+                </select>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">📡 Réception en Direct</div>
+                <div class="status-box" id="infoSignal" style="background: #0f172a; color: #38bdf8;">
+                    Déplacez votre pointeur sur la route...
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">📊 Avancement des investigations</div>
+                <div style="font-size: 0.85rem; line-height: 1.4; margin-bottom: 8px;">
+                    Anomalies résolues : <strong id="statutScore">0 / 3</strong>
+                </div>
+                <button class="btn-main" onclick="genererNouveauChantier()">🔄 Réinitialiser le chantier</button>
+            </div>
+        </div>
+
+        <div class="views-area">
+            <div class="panel" style="padding: 8px;">
+                <div class="canvas-box">
+                    <div class="canvas-label">🗺️ VUE EN PLAN (Chaussée - Survolez pour scanner)</div>
+                    <canvas id="canvasTop" width="850" height="180"></canvas>
+                </div>
+            </div>
+
+            <div class="panel" style="padding: 8px;">
+                <div class="canvas-box">
+                    <div class="canvas-label">📐 PROFIL EN COUPE (Tranchée virtuelle sous l'asphalte)</div>
+                    <canvas id="canvasSide" width="850" height="180"></canvas>
+                </div>
+            </div>
+
+            <div class="panel" id="boxInteractions" style="display: none;">
+                <div class="quiz-container" id="quizBox">
+                    <div class="quiz-title" id="quizQuestion">Analyse réglementaire :</div>
+                    <div class="quiz-options">
+                        <button class="btn-opt" onclick="soumettreReponse('gaz')">🔴 Fluide Gaz / Hydrocarbures</button>
+                        <button class="btn-opt" onclick="soumettreReponse('eau')">🔵 Eau Potable / Refoulement</button>
+                        <button class="btn-opt" onclick="soumettreReponse('elec')">🟡 Distribution Électrique (BT/HT)</button>
+                        <button class="btn-opt" onclick="soumettreReponse('telecom')">🟣 Télécommunications / Fibre</button>
+                    </div>
+                </div>
+                
+                <div class="expert-feedback" id="expertFeedback"></div>
+                
+                <button class="btn-main btn-next" id="btnNextNetwork" onclick="passerAuReseauSuivant()">➡️ Passer à l'anomalie suivante</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvasTop = document.getElementById('canvasTop');
+    const canvasSide = document.getElementById('canvasSide');
+    const ctxTop = canvasTop.getContext('2d');
+    const ctxSide = canvasSide.getContext('2d');
+
+    let mouseX = -100;
+    let activeReseauIdx = null;
+    let score = 0;
+    let reseaux = [];
+
+    let topScanne = new Array(850).fill(false);
+    let sideScanne = new Array(850).fill(false);
+
+    const matProfils = {
+        gaz: { couleur: '#ef4444', nom: 'Gaz', mat: 'Acier thermolaqué', conduct: true },
+        eau: { couleur: '#3b82f6', nom: 'Eau Potable', mat: 'PEHD (Polyéthylène)', conduct: false },
+        elec: { couleur: '#eab308', nom: 'Électricité', mat: 'Cuivre sous fourreau', conduct: true },
+        telecom: { couleur: '#a855f7', nom: 'Télécom', mat: 'Amiante-Ciment', conduct: false }
+    };
+
+    function genererNouveauChantier() {
+        score = 0;
+        activeReseauIdx = null;
+        topScanne.fill(false);
+        sideScanne.fill(false);
+        document.getElementById('statutScore').textContent = "0 / 3";
+        document.getElementById('boxInteractions').style.display = 'none';
+
+        // Configuration fixe de base modifiée dynamiquement
+        reseaux = [
+            { id: 1, type: 'gaz', xStart: 200, xEnd: 280, prof: 0.80, diam: 0.20, classe: 'B', trouve: false, mat: 'Acier' },
+            { id: 2, type: 'elec', xStart: 250, xEnd: 400, prof: 0.60, diam: 0.12, classe: 'A', trouve: false, mat: 'Cuivre' },
+            { id: 3, type: 'eau', xStart: 580, xEnd: 640, prof: 1.10, diam: 0.25, classe: 'C', trouve: false, mat: 'PEHD' }
+        ];
+
+        const typesList = ['gaz', 'eau', 'elec', 'telecom'].sort(() => Math.random() - 0.5);
+        const matsList = ['Acier', 'PEHD', 'Cuivre', 'Amiante-Ciment'];
+
+        reseaux.forEach((res, i) => {
+            res.type = typesList[i] || 'telecom';
+            res.mat = matsList[Math.floor(Math.random() * matsList.length)];
+            res.prof = 0.6 + Math.random() * 0.8;
+            res.classe = ['A', 'B', 'C'][Math.floor(Math.random() * 3)];
+        });
+
+        genererAffichageDICT();
+        redessiner();
+    }
+
+    function genererAffichageDICT() {
+        const infoDict = document.getElementById('dictTextContent');
+        let html = "";
+        reseaux.forEach(res => {
+            let indic = res.classe === 'A' ? "fuseau précis ≤ 40cm" : res.classe === 'B' ? "fuseau incertitude ~ 1m" : "fuseau inconnu (> 1.5m)";
+            html += `• <strong>R${res.id} :</strong> Tracé théorique estimé (Classe ${res.classe} - ${indic}) vers l'axe X: ${Math.round(res.xStart)}px.<br>`;
+        });
+        infoDict.innerHTML = html;
+    }
+
+    function analyserPositionX(xTarget, outil, sol) {
+        let cumulSignal = 0;
+        let reseauPreddominant = null;
+
+        reseaux.forEach(res => {
+            const dist = Math.abs(xTarget - ((res.xStart + res.xEnd)/2));
+            if (dist < 70) {
+                let facteurMateriau = 1.0;
+                if (outil === 'electro' && (res.mat === 'PEHD' || res.mat === 'Amiante-Ciment')) facteurMateriau = 0.08;
+                if (outil === 'radar' && sol === 'argile') facteurMateriau = 0.15;
+
+                let calculSignal = (1 - (dist / 70)) * facteurMateriau * 100;
+                if (calculSignal > cumulSignal) {
+                    cumulSignal = calculSignal;
+                    reseauPreddominant = res;
+                }
+            }
+        });
+
+        return { force: Math.min(100, Math.round(cumulSignal)), target: cumulSignal > 20 ? reseauPreddominant : null };
+    }
+
+    function scannageSouris(e) {
+        const rect = canvasTop.getBoundingClientRect();
+        mouseX = (e.clientX - rect.left) * (canvasTop.width / rect.width);
+        
+        const outil = document.getElementById('selectOutil').value;
+        const sol = document.getElementById('selectSol').value;
+
+        const etendue = 45;
+        for (let i = Math.max(0, Math.floor(mouseX - etendue)); i < Math.min(850, Math.floor(mouseX + etendue)); i++) {
+            topScanne[i] = true;
+            sideScanne[i] = true;
+        }
+
+        const analyse = analyserPositionX(mouseX, outil, sol);
+        const infoBox = document.getElementById('infoSignal');
+        
+        if (analyse.force > 15) {
+            infoBox.innerHTML = `Position : ${Math.round(mouseX)}px<br><span style='color:#e11d48; font-weight:bold;'>⚠️ ANOMALIE DÉTECTÉE : ${analyse.force}%</span><br>Cliquez ici pour analyser la conduite.`;
+        } else {
+            infoBox.innerHTML = `Position : ${Math.round(mouseX)}px<br>Signal récepteur : 0%<br>Aucun écho physique détecté.`;
+        }
+
+        redessiner();
+    }
+
+    function selectionnerReseau(e) {
+        const outil = document.getElementById('selectOutil').value;
+        const sol = document.getElementById('selectSol').value;
+        const analyse = analyserPositionX(mouseX, outil, sol);
+
+        if (analyse.target) {
+            activeReseauIdx = reseaux.indexOf(analyse.target);
+            
+            document.getElementById('boxInteractions').style.display = 'block';
+            document.getElementById('expertFeedback').style.display = 'none';
+            document.getElementById('btnNextNetwork').style.display = 'none';
+            document.getElementById('quizBox').style.display = 'block';
+            
+            document.getElementById('quizQuestion').innerHTML = `⚙️ <strong>Investigation de la Balise R${analyse.target.id}</strong><br><br><strong>Données de laboratoire sur échantillon prélevé :</strong><br>• Matériau : <u>${analyse.target.mat}</u><br>• Précision de la DICT : Classe ${analyse.target.classe}<br><br>Quel type de fluide transite dans cette conduite ?`;
+        }
+    }
+
+    function soumettreReponse(fluideSaisi) {
+        if (activeReseauIdx === null) return;
+        
+        const res = reseaux[activeReseauIdx];
+        const feedbackBlock = document.getElementById('expertFeedback');
+        feedbackBlock.style.display = 'block';
+        document.getElementById('quizBox').style.display = 'none';
+        document.getElementById('btnNextNetwork').style.display = 'block';
+
+        const estCorrect = (fluideSaisi === res.type);
+        const profilConfiguration = matProfils[res.type];
+
+        let rapportTechnique = `<strong>Rapport d'analyse technique (R${res.id}) :</strong><br><br>`;
+        
+        if (document.getElementById('selectOutil').value === 'electro') {
+            if (res.mat === 'Acier' || res.mat === 'Cuivre') {
+                rapportTechnique += `La méthode électromagnétique passive/active réagit fortement en raison de la nature métallique conductrice de l'enveloppe (<strong>${res.mat}</strong>).`;
+            } else {
+                rapportTechnique += `Le matériau spécifié (<strong>${res.mat}</strong>) est isolant. Le couplage inductif n'aurait fourni aucun signal exploitable sur le terrain sans sonde guidée.`;
+            }
+        } else {
+            if (document.getElementById('selectSol').value === 'argile') {
+                rapportTechnique += `L'auscultation GPR (Géoradar) est inopérante à cause de la forte atténuation du signal dans un milieu hautement conducteur et dissipatif comme l'<strong>Argile</strong>.`;
+            } else {
+                rapportTechnique += `Le sol sableux a permis une propagation optimale de l'onde hyperfréquence. L'écho provient de la rupture d'impédance diélectrique sur la génératrice supérieure de la conduite en <strong>${res.mat}</strong>.`;
+            }
+        }
+
+        rapportTechnique += `<br><br>🎯 <strong>Conclusion réglementaire :</strong> C'était un réseau de <strong>${profilConfiguration.nom}</strong>. Les mesures permettent de recaler sa position théorique vers une précision de <strong>Classe A</strong>.`;
+
+        if (estCorrect) {
+            feedbackBlock.className = "expert-feedback feedback-success";
+            feedbackBlock.innerHTML = `<strong>✔️ DIAGNOSTIC CORRECT</strong><br>` + rapportTechnique;
+            if (!res.trouve) {
+                res.trouve = true;
+                score++;
+                document.getElementById('statutScore').textContent = `${score} / 3`;
+            }
+        } else {
+            feedbackBlock.className = "expert-feedback feedback-error";
+            feedbackBlock.innerHTML = `<strong>❌ ERREUR DE TRAVAIL</strong><br>La signature physique ne correspond pas à votre choix.<br><br>` + rapportTechnique;
+        }
+
+        redessiner();
+    }
+
+    function passerAuReseauSuivant() {
+        document.getElementById('boxInteractions').style.display = 'none';
+        activeReseauIdx = null;
+        mouseX = -100;
+        redessiner();
+    }
+
+    function redessiner() {
+        // 1. DESSIN DU HAUT
+        ctxTop.fillStyle = '#475569';
+        ctxTop.fillRect(0, 0, canvasTop.width, canvasTop.height);
+
+        reseaux.forEach(res => {
+            const config = matProfils[res.type];
+            for (let x = Math.floor(Math.min(res.xStart, res.xEnd) - 20); x < Math.max(res.xStart, res.xEnd) + 20; x++) {
+                if (topScanne[x] || res.trouve) {
+                    ctxTop.fillStyle = res.trouve ? config.couleur : 'rgba(255, 255, 255, 0.08)';
+                    const prog = (x - res.xStart) / (res.xEnd - res.xStart || 1);
+                    const yPos = 35 + (prog * 100);
+                    ctxTop.fillRect(x, yPos, 2, 15);
+                }
+            }
+
+            const xMilieu = Math.floor((res.xStart + res.xEnd) / 2);
+            if (topScanne[xMilieu]) {
+                ctxTop.fillStyle = '#ffffff'; ctxTop.font = 'bold 10px sans-serif';
+                ctxTop.fillText(`📍 Anomalie R${res.id}`, xMilieu - 25, 20);
+            }
+        });
+
+        if (mouseX > 0) {
+            ctxTop.strokeStyle = 'rgba(239, 68, 68, 0.7)'; ctxTop.lineWidth = 2;
+            ctxTop.beginPath(); ctxTop.moveTo(mouseX, 0); ctxTop.lineTo(mouseX, canvasTop.height); ctxTop.stroke();
+        }
+
+        // 2. DESSIN DU BAS
+        ctxSide.fillStyle = '#cbd5e1'; 
+        ctxSide.fillRect(0, 0, canvasSide.width, canvasSide.height);
+        
+        ctxSide.fillStyle = document.getElementById('selectSol').value === 'sable' ? '#fde047' : '#854d0e';
+        ctxSide.fillRect(0, 25, canvasSide.width, canvasSide.height - 25);
+
+        ctxSide.fillStyle = '#1e293b'; // Terre cachée noire
+        for (let x = 0; x < canvasSide.width; x++) {
+            if (!sideScanne[x]) {
+                ctxSide.fillRect(x, 25, 1, canvasSide.height - 25);
+            }
+        }
+
+        reseaux.forEach(res => {
+            const xMilieu = (res.xStart + res.xEnd) / 2;
+            if (sideScanne[Math.floor(xMilieu)] || res.trouve) {
+                const config = matProfils[res.type];
+                const yPix = 25 + (res.prof * 90);
+                const rPix = (res.diam * 90) / 2;
+
+                let rayonFuseau = res.classe === 'A' ? 18 : res.classe === 'B' ? 40 : 70;
+                ctxSide.fillStyle = res.classe === 'A' ? 'rgba(22, 163, 74, 0.2)' : res.classe === 'B' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(225, 29, 72, 0.15)';
+                ctxSide.beginPath(); ctxSide.arc(xMilieu, yPix, rayonFuseau, 0, Math.PI * 2); ctxSide.fill();
+
+                ctxSide.fillStyle = res.trouve ? config.couleur : '#94a3b8';
+                ctxSide.strokeStyle = '#ffffff'; ctxSide.lineWidth = 1.5;
+                ctxSide.beginPath(); ctxSide.arc(xMilieu, yPix, rPix, 0, Math.PI * 2);
+                ctxSide.fill(); ctxSide.stroke();
+
+                if (res.trouve) {
+                    ctxSide.fillStyle = '#000000'; ctxSide.font = 'bold 9px sans-serif';
+                    ctxSide.fillText(`R${res.id} : ${config.nom}`, xMilieu + rPix + 4, yPix);
+                    ctxSide.font = '8px sans-serif'; ctxSide.fillText(`Tube : ${res.mat}`, xMilieu + rPix + 4, yPix + 10);
+                }
+            }
+        });
+
+        if (mouseX > 0) {
+            ctxSide.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+            ctxSide.beginPath(); ctxSide.moveTo(mouseX, 0); ctxSide.lineTo(mouseX, canvasSide.height); ctxSide.stroke();
+        }
+    }
+
+    canvasTop.addEventListener('mousemove', scannageSouris);
+    canvasTop.addEventListener('click', selectionnerReseau);
+    
+    genererNouveauChantier();
+</script>
+
+</body>
+</html>
